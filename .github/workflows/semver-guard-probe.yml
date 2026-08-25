@@ -1,0 +1,50 @@
+# Fork-only probe. Not proposed upstream.
+# Purpose: (1) demonstrate that the `if:` guard on "Check semver for rest of the
+# workspace" (introduced in 7b6ccb51, upstream PR #7232) never skips on push
+# events, because github.event.pull_request.base.ref is empty there; and
+# (2) re-run the upstream semver job, verbatim from .github/workflows/ci.yml at
+# dfb0f008 (the tokio-1.43.4 tag), to recover the failure whose upstream logs
+# have expired (runs 16673304480, 18502115413, 20663875306).
+name: semver-guard-probe
+on:
+  push:
+    branches: ["tokio-1.99.x"]
+  workflow_dispatch:
+
+env:
+  rust_stable: stable
+
+jobs:
+  guard-semantics:
+    name: guard-semantics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Event context
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "github.event.pull_request.base.ref='${{ github.event.pull_request.base.ref }}'"
+          echo "github.ref_name='${{ github.ref_name }}'"
+      - name: Upstream guard, verbatim (if this step runs on a push, the guard skipped nothing)
+        if: ${{ !startsWith(github.event.pull_request.base.ref, 'tokio-1.') }}
+        run: echo "guard evaluated TRUE on a push event - the workspace semver step would run here"
+      - name: Push-aware guard (should be skipped on a tokio-1.* push)
+        if: ${{ !startsWith(github.event.pull_request.base.ref, 'tokio-1.') && !startsWith(github.ref_name, 'tokio-1.') }}
+        run: echo "if this printed on a tokio-1.* push, the push-aware guard is wrong"
+
+  semver:
+    name: semver (verbatim from ci.yml at dfb0f008, guard removed so the step always runs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check `tokio` semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          rust-toolchain: ${{ env.rust_stable }}
+          package: tokio
+          release-type: minor
+      - name: Check semver for rest of the workspace
+        uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          rust-toolchain: ${{ env.rust_stable }}
+          exclude: tokio
+          release-type: minor
