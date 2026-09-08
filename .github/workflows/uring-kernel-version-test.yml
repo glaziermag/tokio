@@ -81,6 +81,7 @@ jobs:
           mount -t sysfs sysfs /sys
           mkdir -p /tmp && mount -t tmpfs -o mode=1777 tmpfs /tmp
           for f in /bin/tests/*; do RUST_BACKTRACE=1 "$f" ; done
+          echo "ALL_TESTS_COMPLETED"
           EOF
           chmod +x initramfs/init
 
@@ -98,7 +99,7 @@ jobs:
             -kernel linux-${{ env.KERNEL_VERSION }}/arch/x86/boot/bzImage \
             -initrd initramfs.cpio.gz \
             -append "console=ttyS0 rootfstype=ramfs panic=1" \
-            -nographic -no-reboot -m 1024 -action panic=exit-failure 2>&1 | tee qemu-output.log
+            -nographic -no-reboot -m 3072 -action panic=exit-failure 2>&1 | tee qemu-output.log
           qemu_status=${PIPESTATUS[0]} tee_status=${PIPESTATUS[1]}
           set -e
 
@@ -115,6 +116,11 @@ jobs:
           if grep -q "test result: FAILED" qemu-output.log; then
             echo "tests reported failures"
             exit 1
-          else
-            echo "all tests passed"
           fi
+
+          if ! grep -q "ALL_TESTS_COMPLETED" qemu-output.log; then
+            echo "tests did not run to completion (init exited before the last test binary)"
+            exit 1
+          fi
+
+          echo "all tests passed"
