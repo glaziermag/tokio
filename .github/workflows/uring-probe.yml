@@ -1,0 +1,19 @@
+name: uring-probe
+# Reproduction harness only: calls the repository's own reusable io_uring
+# kernel-version workflow on demand so the leg can be run in isolation.
+on:
+  push:
+    branches: ['uring-probe-*']
+  workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: 'Linux kernel version to build and boot'
+        required: true
+        default: '7.2.4'
+        type: string
+
+jobs:
+  uring:
+    uses: ./.github/workflows/uring-kernel-version-test.yml
+    with:
+      kernel_version: ${{ inputs.kernel_version || '7.2.4' }}
