@@ -1,0 +1,17 @@
+name: uring-probe
+# Reproduction harness only (fork): calls the repository's own reusable
+# io_uring kernel-version workflow so the leg can be run in isolation.
+on:
+  push:
+    branches: ['uring-probe-*']
+  workflow_dispatch:
+
+jobs:
+  uring:
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel_version: ['7.2.4', '4.19.325']
+    uses: ./.github/workflows/uring-kernel-version-test.yml
+    with:
+      kernel_version: ${{ matrix.kernel_version }}
